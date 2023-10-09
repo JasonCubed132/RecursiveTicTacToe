@@ -28,9 +28,9 @@ class Board():
     def __init__(self, size: int = 3):
         self.size = size
         self.cells = []
-        for i in range(0, size):
+        for _ in range(0, size):
             row = []
-            for j in range(0, size):
+            for _ in range(0, size):
                 row.append(Cell())
             self.cells.append(row)
         print(self)
@@ -55,7 +55,7 @@ class Board():
 
         return output_lines
     
-    def to_dict(self) -> dict:
+    def toDict(self) -> dict:
         output = {}
 
         output_array = []
@@ -73,10 +73,12 @@ class Board():
     def isAllElementsIdentical(self, array: List[str]) -> bool:
         if len(array) == 0:
             return False
+
         value = array[0]
         for i in range(len(array)):
             if array[i] != value:
                 return False
+
         return True
     
     def getWinnerFromArray(self, array: List[str]) -> Union[str, None]:
@@ -90,24 +92,24 @@ class Board():
             return None
         
         # Evaluate each row
-        for i in self.size:
+        for i in range(self.size):
             result = self.getWinnerFromArray(self.cells[i])
             if result != None:
                 return result
 
         # Evaluate each column
-        for i in self.size:
-            column = [self.cells[j][i] for j in self.size]
+        for i in range(self.size):
+            column = [self.cells[j][i] for j in range(self.size)]
             result = self.getWinnerFromArray(column)
             if result != None:
                 return result
 
-        leading = [self.cells[i][i] for i in self.size]
+        leading = [self.cells[i][i] for i in range(self.size)]
         result = self.getWinnerFromArray(leading)
         if result != None:
             return result
         
-        trailing = [self.cells[3-i][i] for i in self.size]
+        trailing = [self.cells[self.size-1-i][i] for i in range(self.size)]
         result = self.getWinnerFromArray(trailing)
         if result != None:
             return result
@@ -121,20 +123,30 @@ async def handleGameConnection(websocket):
     print("Game connected")
     async for message in websocket:
         parsed_message = json.loads(message)
-        x = int(parsed_message["x"])
-        y = int(parsed_message["y"])
-        player = parsed_message["player"]
-        accepted = game.setCell(x, y, player)
-        game_state = game.to_dict()
-        if accepted:
-            print(f"Set cell {x} {y} to {player}")
-            game_state["accepted"] = True
+
+        action = parsed_message["action"]
+        if action == "turn":
+            payload = parsed_message["payload"]
+
+            x = int(payload["x"])
+            y = int(payload["y"])
+            player = payload["player"]
+            accepted = game.setCell(x, y, player)
+            if accepted:
+                print(f"Set cell {x} {y} to {player}")
+                await websocket.send(json.dumps(True))
+            else:
+                print(f"Failed to set cell {x} {y} to {player}")
+                await websocket.send(json.dumps(False))
+
+        elif action == "get_board":
+            game_state = game.toDict()
             await websocket.send(json.dumps(game_state))
-        else:
-            print(f"Failed to set cell {x} {y} to {player}")
-            game_state["accepted"] = False
-            await websocket.send(json.dumps(game_state))
-       
+
+        elif action == "get_winner":
+            winner = game.getWinner()
+            winner_dict = {"winner": winner}
+            await websocket.send(json.dumps(winner_dict))
 
 async def main():
     global game
