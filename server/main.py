@@ -23,10 +23,15 @@ class Cell():
             return " "
         return self.state
 
+    def __eq__(self, other) -> bool:
+        if other == None:
+            return False
+        return self.state == other.get()
 
 class Board():
     def __init__(self, size: int = 3):
         self.size = size
+        self.winner = None
         self.cells = []
         for _ in range(0, size):
             row = []
@@ -39,6 +44,7 @@ class Board():
             return False
         if y < 0 or y >= self.size:
             return False
+
         return self.cells[y][x].set(player)
 
     def __str__(self) -> str:
@@ -86,30 +92,37 @@ class Board():
         if self.size == 0:
             # Nothing to evaluate
             return None
-        
+
+        if self.winner != None:
+            return self.winner
+
         # Evaluate each row
         for i in range(self.size):
             result = self.getWinnerFromArray(self.cells[i])
             if result != None:
-                return result
+                self.winner = result.get()
+                return self.winner
 
         # Evaluate each column
         for i in range(self.size):
             column = [self.cells[j][i] for j in range(self.size)]
             result = self.getWinnerFromArray(column)
             if result != None:
-                return result
+                self.winner = result.get()
+                return self.winner
 
         leading = [self.cells[i][i] for i in range(self.size)]
         result = self.getWinnerFromArray(leading)
         if result != None:
-            return result
+            self.winner = result.get()
+            return self.winner
         
         trailing = [self.cells[self.size-1-i][i] for i in range(self.size)]
         result = self.getWinnerFromArray(trailing)
         if result != None:
-            return result
-        
+            self.winner = result.get()
+            return self.winner
+
         return None
 
 game: Board = None
@@ -122,6 +135,10 @@ async def handleGameConnection(websocket):
 
         action = parsed_message["action"]
         if action == "turn":
+            if game.getWinner() != None:
+                await websocket.send(json.dumps({"accepted": False, "reason": "Already won"}))
+                continue
+
             payload = parsed_message["payload"]
 
             x = int(payload["x"])
@@ -129,15 +146,22 @@ async def handleGameConnection(websocket):
             player = payload["player"]
 
             accepted = game.setCell(x, y, player)
-            await websocket.send(json.dumps(accepted))
+
+            if accepted:
+                await websocket.send(json.dumps({"accepted": True, "reason": ""}))
+            else:
+                await websocket.send(json.dumps({"accepted": False, "reason": "Parameter error"}))
+            continue
 
         elif action == "get_board":
             game_state = game.toArray()
             await websocket.send(json.dumps(game_state))
+            continue
 
         elif action == "get_winner":
             winner = game.getWinner()
             await websocket.send(json.dumps(winner))
+            continue
 
 async def main():
     global game
