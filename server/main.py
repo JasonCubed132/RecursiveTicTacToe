@@ -33,7 +33,6 @@ class Board():
             for _ in range(0, size):
                 row.append(Cell())
             self.cells.append(row)
-        print(self)
 
     def setCell(self, x: int, y: int, player: str) -> bool:
         if x < 0 or x >= self.size:
@@ -55,9 +54,7 @@ class Board():
 
         return output_lines
     
-    def toDict(self) -> dict:
-        output = {}
-
+    def toArray(self) -> List[Union[str, None]]:
         output_array = []
         for i in range(self.size):
             output_row = []
@@ -66,9 +63,8 @@ class Board():
                 output_row.append(cell)
 
             output_array.append(output_row)
-        
-        output["board"] = output_array
-        return output
+
+        return output_array
 
     def isAllElementsIdentical(self, array: List[str]) -> bool:
         if len(array) == 0:
@@ -131,22 +127,17 @@ async def handleGameConnection(websocket):
             x = int(payload["x"])
             y = int(payload["y"])
             player = payload["player"]
+
             accepted = game.setCell(x, y, player)
-            if accepted:
-                print(f"Set cell {x} {y} to {player}")
-                await websocket.send(json.dumps(True))
-            else:
-                print(f"Failed to set cell {x} {y} to {player}")
-                await websocket.send(json.dumps(False))
+            await websocket.send(json.dumps(accepted))
 
         elif action == "get_board":
-            game_state = game.toDict()
+            game_state = game.toArray()
             await websocket.send(json.dumps(game_state))
 
         elif action == "get_winner":
             winner = game.getWinner()
-            winner_dict = {"winner": winner}
-            await websocket.send(json.dumps(winner_dict))
+            await websocket.send(json.dumps(winner))
 
 async def main():
     global game
@@ -155,4 +146,5 @@ async def main():
     async with serve(handleGameConnection, "localhost", 1234):
         await asyncio.Future()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

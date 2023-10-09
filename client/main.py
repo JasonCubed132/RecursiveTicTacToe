@@ -1,7 +1,7 @@
 import asyncio, json
 from websockets.sync.client import connect
 
-def hello():
+def main():
     with connect("ws://localhost:1234") as websocket:
         turn = {
             "action": "turn",
@@ -29,4 +29,5 @@ def hello():
         message = websocket.recv()
         print(f"Recieved: {message}")
 
-hello()
+if __name__ == "__main__":
+    main()
