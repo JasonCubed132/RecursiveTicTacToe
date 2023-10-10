@@ -1,4 +1,4 @@
-import asyncio, json
+import asyncio, json, random
 from websockets.server import serve
 from typing import Union, List
 
@@ -152,16 +152,40 @@ class Board(AbstractCell):
 
         return None
 
-game: Board = None
+sessions = {}
 
 async def handleGameConnection(websocket):
-    global game
+    global sessions
+    current_session_id = None
     print("Game connected")
     async for message in websocket:
         parsed_message = json.loads(message)
-
         action = parsed_message["action"]
-        if action == "turn":
+
+        if action == "new_session":
+            new_session_id = random.randint(1, 100000000)
+            while new_session_id in sessions:
+                new_session_id = random.randint(1, 100000000)
+
+            current_session_id = new_session_id
+
+            sessions[new_session_id] = Board()
+
+            await websocket.send(json.dumps({"session_id": new_session_id}))
+            continue
+
+        elif action == "connect_session":
+            session_id = parsed_message["session_id"]
+
+            if session_id in sessions:
+                current_session_id = session_id
+                await websocket.send(json.dumps({"accepted": True}))
+                continue
+            else:
+                await websocket.send(json.dumps({"accepted": False, "reason": "unable to find session"}))
+                continue
+        
+        elif action == "turn":
             if game.getWinner() != None:
                 await websocket.send(json.dumps({"accepted": False, "reason": "Already won"}))
                 continue

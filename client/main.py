@@ -3,6 +3,7 @@ from websockets.sync.client import connect
 
 def main():
     with connect("ws://localhost:1234") as websocket:
+        session_id = None
         while True:
             line = input("> ")
 
@@ -13,6 +14,21 @@ def main():
             data = line.split(" ")
 
             action = data[0]
+
+            if action == "new_session":
+                websocket.send(json.dumps({"action": "new_session"}))
+                message = websocket.recv()
+                session_id = json.loads(message)["session_id"]
+                print(session_id)
+
+            elif action == "connect_session":
+                tmp_session_id = int(data[1])
+                websocket.send(json.dumps({"action": "connect_session", "session_id": tmp_session_id}))
+                reply = json.loads(websocket.recv())
+                if reply["accepted"]:
+                    session_id = tmp_session_id
+                else:
+                    print(reply["reason"])
 
             if action == "turn":
                 x = int(data[1])
