@@ -160,6 +160,7 @@ async def handleGameConnection(websocket):
     game = None
     print("Game connected")
     async for message in websocket:
+        print(message)
         parsed_message = json.loads(message)
         action = parsed_message["action"]
 

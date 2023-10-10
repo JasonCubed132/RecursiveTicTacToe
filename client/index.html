@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script type="text/javascript">
+            session = null;
+            const socket = new WebSocket("ws://localhost:1234");
+
+            async function new_session() {
+                action = {"action": "new_session"};
+                console.log(action);
+                socket.send(JSON.stringify(action));
+            }
+
+            async function connect_session() {
+                var session_id_input = document.getElementById("session_id_input");
+                action = {
+                    "action": "connect_session",
+                    "session_id": session_id_input.value
+                };
+                console.log(action);
+                socket.send(JSON.stringify(action));
+            }
+        </script>
+    </head>
+    <body>
+        <button type="button" onclick="new_session()">New Session</button>
+        <button type="button" onclick="connect_session()">Join Session</button>
+        <input type="text" id="session_id_input"></input>
+        <canvas>
+
+        </canvas>
+    </body>
+</html>
