@@ -2,55 +2,70 @@ import asyncio, json
 from websockets.server import serve
 from typing import Union, List
 
-class Cell():
-    def __init__(self):
-        self.state: Union[str, None] = None
-
-    def set(self, val: str) -> bool:
-        if self.state == None:
-            if len(val) != 1:
-                raise ValueError(f"value {val} is longer than 1")
-
-            self.state = val
-            return True
-        return False
-
-    def get(self) -> Union[str, None]:
-        return self.state
-    
-    def __str__(self) -> str:
-        if self.state == None:
-            return " "
-        return self.state
+class AbstractCell():
+    def __init__(self, depth: int = 1, size: int = 1):
+        self.size: int = size
+        self.winner: Union[str, None] = None
 
     def __eq__(self, other) -> bool:
         if other == None:
             return False
-        return self.state == other.get()
+        return self.winner == other.getWinner()
 
-class Board():
-    def __init__(self, size: int = 3):
-        self.size = size
-        self.winner = None
-        self.cells = []
+    def getWinner(self) -> Union[str, None]:
+        return self.winner
+
+    def setCell(self, x: int, y: int, player: str) -> bool:
+        return False
+    
+    def toArray(self):
+        return self.winner
+
+class Cell(AbstractCell):
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self) -> str:
+        if self.winner == None:
+            return " "
+        return self.winner
+
+    def setCell(self, x: int, y: int, player: str) -> bool:
+        if self.winner == None:
+            if len(player) != 1:
+                raise ValueError(f"value {player} is longer than 1")
+
+            self.winner = player
+            return True
+        return False
+
+class Board(AbstractCell):
+    def __init__(self, depth: int = 2, size: int = 3):
+        super().__init__(depth, size)
+
+        self.cells: List[List[AbstractCell]] = []
         for _ in range(0, size):
             row = []
             for _ in range(0, size):
-                row.append(Cell())
+                if depth <= 1:
+                    row.append(Cell())
+                else:
+                    row.append(Board(depth - 1, size))
             self.cells.append(row)
-
-    def setCell(self, x: int, y: int, player: str) -> bool:
-        if x < 0 or x >= self.size:
-            return False
-        if y < 0 or y >= self.size:
-            return False
-
-        return self.cells[y][x].set(player)
 
     def __str__(self) -> str:
         lines = []
         for row in self.cells:
-            lines.append("|".join([str(cell) for cell in row]))
+            line = []
+            for cell in row:
+                cell_str = str(cell).split("\n")
+                line.append(cell_str)
+
+            transposed_line = zip(*line)
+
+            concated_line = ["|".join(individual_line) for individual_line in transposed_line]
+
+            lines.append(concated_line)
 
         length = max([len(line) for line in lines])
         filler = "-"*length + "\n"
@@ -59,13 +74,23 @@ class Board():
         output_lines = filler.join(appended_lines)
 
         return output_lines
-    
-    def toArray(self) -> List[Union[str, None]]:
+
+    def setCell(self, x: int, y: int, player: str) -> bool:
+        if self.winner == None:
+            if x < 0 or x >= self.size:
+                return False
+            if y < 0 or y >= self.size:
+                return False
+
+            return self.cells[y][x].setCell(x, y, player)
+        return False
+
+    def toArray(self):
         output_array = []
         for i in range(self.size):
             output_row = []
             for j in range(self.size):
-                cell = self.cells[i][j].get()
+                cell = self.cells[i][j].toArray()
                 output_row.append(cell)
 
             output_array.append(output_row)
@@ -100,7 +125,7 @@ class Board():
         for i in range(self.size):
             result = self.getWinnerFromArray(self.cells[i])
             if result != None:
-                self.winner = result.get()
+                self.winner = result.getWinner()
                 return self.winner
 
         # Evaluate each column
@@ -108,19 +133,21 @@ class Board():
             column = [self.cells[j][i] for j in range(self.size)]
             result = self.getWinnerFromArray(column)
             if result != None:
-                self.winner = result.get()
+                self.winner = result.getWinner()
                 return self.winner
 
+        # Evaluate leading diagonal
         leading = [self.cells[i][i] for i in range(self.size)]
         result = self.getWinnerFromArray(leading)
         if result != None:
-            self.winner = result.get()
+            self.winner = result.getWinner()
             return self.winner
         
+        # Evaluate trailing diagonal
         trailing = [self.cells[self.size-1-i][i] for i in range(self.size)]
         result = self.getWinnerFromArray(trailing)
         if result != None:
-            self.winner = result.get()
+            self.winner = result.getWinner()
             return self.winner
 
         return None
@@ -148,7 +175,7 @@ async def handleGameConnection(websocket):
             accepted = game.setCell(x, y, player)
 
             if accepted:
-                await websocket.send(json.dumps({"accepted": True, "reason": ""}))
+                await websocket.send(json.dumps({"accepted": True,  "reason": ""}))
             else:
                 await websocket.send(json.dumps({"accepted": False, "reason": "Parameter error"}))
             continue
@@ -165,7 +192,7 @@ async def handleGameConnection(websocket):
 
 async def main():
     global game
-    game = Board()
+    game = Board(1, 5)
 
     async with serve(handleGameConnection, "localhost", 1234):
         await asyncio.Future()

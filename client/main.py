@@ -47,5 +47,8 @@ def main():
                 message = websocket.recv()
                 print(f"Recieved: {message}")
 
+            elif action == "exit":
+                break
+
 if __name__ == "__main__":
     main()
