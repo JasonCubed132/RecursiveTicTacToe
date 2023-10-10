@@ -15,7 +15,7 @@
                 var session_id_input = document.getElementById("session_id_input");
                 action = {
                     "action": "connect_session",
-                    "session_id": session_id_input.value
+                    "session_id": parseInt(session_id_input.value)
                 };
                 console.log(action);
                 socket.send(JSON.stringify(action));
