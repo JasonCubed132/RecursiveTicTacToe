@@ -157,10 +157,14 @@ sessions = {}
 async def handleGameConnection(websocket):
     global sessions
     current_session_id = None
+    game = None
     print("Game connected")
     async for message in websocket:
         parsed_message = json.loads(message)
         action = parsed_message["action"]
+
+        if current_session_id != None:
+            game = sessions[current_session_id]
 
         if action == "new_session":
             new_session_id = random.randint(1, 100000000)
@@ -184,7 +188,7 @@ async def handleGameConnection(websocket):
             else:
                 await websocket.send(json.dumps({"accepted": False, "reason": "unable to find session"}))
                 continue
-        
+
         elif action == "turn":
             if game.getWinner() != None:
                 await websocket.send(json.dumps({"accepted": False, "reason": "Already won"}))
