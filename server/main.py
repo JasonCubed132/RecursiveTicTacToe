@@ -186,7 +186,7 @@ async def handleGameConnection(websocket):
                 await websocket.send(json.dumps({"accepted": True}))
                 continue
             else:
-                await websocket.send(json.dumps({"accepted": False, "reason": "unable to find session"}))
+                await websocket.send(json.dumps({"accepted": False, "reason": "Unable to find session"}))
                 continue
 
         elif action == "turn":
@@ -219,9 +219,6 @@ async def handleGameConnection(websocket):
             continue
 
 async def main():
-    global game
-    game = Board(1, 5)
-
     async with serve(handleGameConnection, "localhost", 1234):
         await asyncio.Future()
 
