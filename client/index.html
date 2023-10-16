@@ -2,22 +2,57 @@
 <html>
     <head>
         <script type="text/javascript">
-            session = null;
+            var session = null;
+
             const socket = new WebSocket("ws://localhost:1234");
 
+            socket.onmessage = function(e) {
+                var status = document.getElementById("status");
+
+                var data = JSON.parse(e.data);
+                console.log(data);
+                if (data["action"] == "new_session") {
+                    if (data["success"]) {
+                        session = data["session_id"];
+                        status.innerHTML = "got session "  + session;
+                    } else {
+                        status.innerHTML = "failed to get new session";
+                    }
+                } else if (data["action"] == "connect_session") {
+                    session = data["session_id"];
+                    if (data["success"]) {
+                        status.innerHTML = "connected to session "  + session;
+                    } else {
+                        reason = data["reason"];
+                        status.innerHTML = "failed to connect to session " + session + " because " + reason;
+                    }
+                }
+            }
+
             async function new_session() {
-                action = {"action": "new_session"};
-                console.log(action);
+                var action = {"action": "new_session"};
                 socket.send(JSON.stringify(action));
             }
 
             async function connect_session() {
                 var session_id_input = document.getElementById("session_id_input");
-                action = {
+                var action = {
                     "action": "connect_session",
                     "session_id": parseInt(session_id_input.value)
                 };
-                console.log(action);
+                socket.send(JSON.stringify(action));
+            }
+
+            async function make_turn() {
+                var x_input = document.getElementById("x_input");
+                var y_input = document.getElementById("y_input");
+                var x = parseInt(x_input.value);
+                var y = parseInt(y_input.value);
+                var action = {
+                    "action": "make_turn",
+                    "x": x,
+                    "y": y
+                }
                 socket.send(JSON.stringify(action));
             }
         </script>
@@ -25,7 +60,11 @@
     <body>
         <button type="button" onclick="new_session()">New Session</button>
         <button type="button" onclick="connect_session()">Join Session</button>
-        <input type="text" id="session_id_input"></input>
+        <label>Session ID:</label><input type="text" id="session_id_input"></input><br />
+        <button type="button" onclick="make_turn()">Make Turn</button>
+        <label>X:</label><input type="text" id="x_input"></input>
+        <label>Y:</label><input type="text" id="y_input"></input><br />
+        <p id="status"></p>
         <canvas>
 
         </canvas>

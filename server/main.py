@@ -153,11 +153,13 @@ class Board(AbstractCell):
         return None
 
 sessions = {}
+players = ["X", "O"]
 
 async def handleGameConnection(websocket):
     global sessions
     current_session_id = None
     game = None
+    player = None
     print("Game connected")
     async for message in websocket:
         print(message)
@@ -174,9 +176,19 @@ async def handleGameConnection(websocket):
 
             current_session_id = new_session_id
 
-            sessions[new_session_id] = Board()
+            sessions[new_session_id] = {
+                "board": Board(),
+                "websockets": []
+            };
 
-            await websocket.send(json.dumps({"session_id": new_session_id}))
+            player = players[0]
+            sessions[new_session_id]["websockets"][player] = websocket
+
+            await websocket.send(json.dumps({
+                "action": "new_session", 
+                "success": True,
+                "session_id": new_session_id
+            }))
             continue
 
         elif action == "connect_session":
@@ -184,29 +196,50 @@ async def handleGameConnection(websocket):
 
             if session_id in sessions:
                 current_session_id = session_id
-                await websocket.send(json.dumps({"accepted": True}))
-                continue
+                idx = len(sessions[current_session_id]["websockets"])
+                if idx < len(players):
+                    player = players[idx]
+                    sessions[current_session_id]["websockets"][player] = websocket
+                    game = sessions[current_session_id]["game"]
+
+                    await websocket.send(json.dumps({
+                        "action": "connect_session",
+                        "success": True,
+                        "session_id": current_session_id
+                    }))
+                else: 
+                    await websocket.send(json.dumps({
+                        "action": "connect_session",
+                        "success": False,
+                        "session_id": current_session_id,
+                        "reason": "Already max number of players in session"
+                    }))
             else:
-                await websocket.send(json.dumps({"accepted": False, "reason": "Unable to find session"}))
-                continue
+                await websocket.send(json.dumps({
+                    "action": "connect_session",
+                    "success": False,
+                    "session_id": current_session_id,
+                    "reason": "Unable to find session"
+                }))
+            continue
 
-        elif action == "turn":
-            if game.getWinner() != None:
-                await websocket.send(json.dumps({"accepted": False, "reason": "Already won"}))
-                continue
-
-            payload = parsed_message["payload"]
-
-            x = int(payload["x"])
-            y = int(payload["y"])
-            player = payload["player"]
+        elif action == "make_move":
+            x = int(parsed_message["x"])
+            y = int(parsed_message["y"])
 
             accepted = game.setCell(x, y, player)
 
             if accepted:
-                await websocket.send(json.dumps({"accepted": True,  "reason": ""}))
+                await websocket.send(json.dumps({
+                    "action": "make_move", 
+                    "success": True
+                }))
             else:
-                await websocket.send(json.dumps({"accepted": False, "reason": "Parameter error"}))
+                await websocket.send(json.dumps({
+                    "action": "make_move", 
+                    "success": False, 
+                    "reason": "Parameter error"
+                }))
             continue
 
         elif action == "get_board":
